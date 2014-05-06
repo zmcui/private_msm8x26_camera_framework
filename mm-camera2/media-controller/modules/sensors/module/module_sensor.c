@@ -141,3 +141,34 @@ static void module_sensor_find_sensor_subdev(module_sensor_ctrl_t *module_ctrl)
 	}
 	return;
 }
+
+
+/** module_sensor_init: sensor module init
+ * 
+ *  Return: mct_module_t pointer corresponding to sensor
+ * 
+ *  This function creates mct_module_t for sensor module,
+ *  cteates port, fills capabilities and add it to the sensor
+ *  module
+ */
+ mct_module_t *module_sensor_int(const char *name)
+ {
+ 	....
+ 	/* Create sensor module control structure that consists of bundle
+ 	   information*/
+ 	module_ctrl = malloc(sizeof(module_sensor_ctrl_t));
+ 	if(!module_ctrl){
+ 		SERR("failed");
+ 		goto ERROR1;
+ 	}
+ 	memset(module_ctrl, 0, sizeof(module_sensor_ctrl_t));
+ 	
+ 	s_module->module_private = (void *)module_ctrl;
+ 	
+ 	/* sensor module doesn't have sink port */
+ 	s_module->numsinkports = 0;
+ 	
+ 	/* Fill all detected sensors */
+ 	 module_sensor_find_sensor_subdev(module_ctrl);
+ 	....
+ }
