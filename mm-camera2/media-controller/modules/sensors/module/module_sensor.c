@@ -34,10 +34,11 @@ static void module_sensor_find_sensor_subdev(module_sensor_ctrl_t *module_ctrl)
           break;
      }     
 
-     if(strncmp(mdev_info.model, "msm_config", sizeof(mdev_info.model) != 0)){
-      close(dev_fd);
-      continue;
-     }
+	/* czm: BUG missing right parenthesis */
+    if(strncmp(mdev_info.model, "msm_config", sizeof(mdev_info.model) != 0)){
+     close(dev_fd);
+     continue;
+    }
 
 	while(1){
 		struct media_entity_desc entity;
