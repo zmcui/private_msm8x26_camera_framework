@@ -1,3 +1,89 @@
+/** module_sensor_process_event: process event for sensor
+ *  module
+ * 
+ *  @streamid: streamid associated with event
+ *  @module: mct module handle
+ *  @event: event to be processed
+ * 
+ *  Return: 0 for success and negative error on failure
+ * 
+ *  This function handles all events and sends those events
+ *  downstream / upstream **/
+static boolean module_sensor_module_process_event(mct_module_t *module,
+mct_event_t *event)
+{
+	boolean		ret = TRUE;
+	int32_t		rc = SENSOR_SUCCESS;
+	module_sensor_ctrl_t *module_ctrl = NULL;
+	mct_event_control_t *event_ctrl = NULL;
+	sensor_bundle_infor_t bundle_info;
+	
+	if(!module || !event){
+		SERR("failed port %p event %p", module, event);
+		return FALSE;
+	}
+	if(event->type != MCT_EVENT_CONTROL_CMD){
+		SERR("failed invalid event type %d", event->type);
+		return FALSE;
+	}
+	
+	module_ctrl = (module_sensor_ctrl_t *)module->module_private;
+	if(!module_ctrl){
+		SERR("failed");
+		return FALSE;
+	}
+	
+	event_ctrl = &event->u.ctrl_event;
+	
+	memset(&bundle_info, 0, sizeof(sensor_bundle_info_t));
+	ret = sensor_util_get_bundle(module, event->identity, &bundle_info);
+	if(ret == FALSE){
+		SERR("failed");
+		return FALSE;
+	}
+	SLOW("event id %d", event_ctrl->type);
+	
+	if(event_ctrl->type == MCT_EVENT_CONTROL_PREPARE_SNAPSHOT){
+		sensor_output_format_t output_format;
+		mct_bus_msg_t bus_msg;
+		module_sensor_params_t *module_sensor_params = NULL;
+		
+		bundle_info.s_bundle->state = 0;
+		bundle_info.s_bundle->regular_led_triger = 0;
+		module_sensor_params = bundle_info.s_bundle->module_sensor_params[SUB_MODULE_SENSOR];
+		rc = module_sensor_params->func_tbl.process(
+			module_sensor_params->sub_module_private,
+			SENSOR_GET_SENSOR_FROMAT, &output_format);
+		SLOW("in Prepare snapshot, sensor type is %d \n", output_format);
+		if(output_format == SENSOR_YCBCR){
+			bus_msg.sessionid = bundle_info.s_bundle->sensor_info->session_id;
+			bus_msg.type = MCT_BUS_MSG_PREPARE_HW_DONE;
+			cam_prep_snapshot_state_t state;
+			state = DO_NOT_NEED_FUTURE_FRAME;
+			bus_msg.msg = &state;
+			if(mct_module_post_bus_msg(module, &bus_msg) != TRUE)
+			  SERR("Failure posting to the bus!");
+			return TRUE;
+		}
+	}
+	switch(event_ctrl->type){
+		case MCT_EVENT_CONTROL_STREAMON;
+		  SLOW("CT_EVENT_CONTROL_STREAMON");
+		  memcpy(&module_ctrl->streaminfo, event->u.ctrl_event.control_event_data, sizeof(mct_stream_info_t));
+		  ret = module_sensor_stream_on(module, event, bundle_info.s_bundle);
+		  if(ret == FALSE){
+		  	SERR("failed");
+		  	break;
+		  }
+		  break;
+		case ....
+	}
+}
+
+
+
+
+
 /** module_sensor_find_sensor_subdev: find sensor subdevs
  *  
  *  @module_ctrl: sensor ctrl pointer
