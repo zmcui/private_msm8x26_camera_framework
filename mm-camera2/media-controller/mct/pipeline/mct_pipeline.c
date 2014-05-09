@@ -59,6 +59,7 @@ static boolean mct_pipeline_process_get(struct msm_v4l2_event_data *data, mct_pi
 	switch(data->command){
 	case MSM_CAMERA_PRIV_QUERY_CAP:{
 		/* for queryBuf */
+		/* czm command case from camera.c(kernel/media/platform/msm/camera_v2/camera/)*/
 		if(!pipeline->query_buf || !pipeline->modules){
 			ret = FALSE;
 		}else{
