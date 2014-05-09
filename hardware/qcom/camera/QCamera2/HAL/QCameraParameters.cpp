@@ -72,7 +72,7 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
 	bool useOptimal = atoi(value) > 0 ? true : false;
 	
 	// use picture size from user setting
-	// czm 
+	// czm call getPictureSize in CameraParameters.cpp(framework/av/camera)
 	params.getPictureSize(&m_LiveSnapshotSize.width, &m_LiveSnapshotSize.height);
 	
 	uint8_t livesnapshot_sizes_tbl_cnt = m_pCapability->livesnapshot_sizes_tbl_cnt;
