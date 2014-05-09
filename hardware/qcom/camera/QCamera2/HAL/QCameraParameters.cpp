@@ -75,10 +75,33 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
 	// czm call getPictureSize in CameraParameters.cpp(framework/av/camera)
 	params.getPictureSize(&m_LiveSnapshotSize.width, &m_LiveSnapshotSize.height);
 	
+	// czm assignment procedure done in mct_pipeline.c(mm-camera2/media-controller/mct/pipeline/)
 	uint8_t livesnapshot_sizes_tbl_cnt = m_pCapability->livesnapshot_sizes_tbl_cnt;
 	cam_dimension_t *livesnapshot_sizes_tbl = &m_pCapability->livesnapshot_sizes_tbl[0];
 	
 	// check if HFR is enabled
 	....
+	
+	if(useOptimal || hfrMode != CAM_HFR_MODE_OFF){
+		bool found = false;
+		// first check if picture size is within the list of supported sizes
+		for(int i = 0; i < livesnapshot_sizes_tbl_cnt; ++i){
+			if(m_LiveSnapshotSize.width == livesnapshot_sizes_tbl[i].width &&
+			m_LiveSnapshotSize.height == livesnapshot_sizes_tbl[i].height){
+				found = true;
+				break;
+			}
+		}
+	
+		if(!found){
+			// use optimal live snapshot size from supported list
+			// that has same preview aspect ratio
+			....
+		}
+	}//CAM_HFR_MODE_OFF
+	ALOGI("%s: live snapshot size %d x %d", __func__,
+		m_LiveSnapshotSize.width, m_LiveSnapshotSize.height);
+		
+	return NO_ERROR;
  }
  
