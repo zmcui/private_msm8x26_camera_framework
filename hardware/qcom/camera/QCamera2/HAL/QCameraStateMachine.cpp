@@ -26,3 +26,52 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
+/*======================================
+ * FUNCTION	: procEvtPreviewStoppedState
+ *
+ * DESCRIPTION: finite state machine function to handle event in state of
+ *				QCAMERA_SM_STATE_PREVIEW_STOPPED
+ * PARAMETERS :
+ *	@evt	: event to be processed
+ *	@payload: event payload. Can be NULL if not needed
+ *
+ * RETURN	: int32_t tpye of status
+ *			  NO_ERROR -- success
+ *			  none-zero failure code
+ *=====================================*/
+int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t evt,
+														void *payload)
+{
+	....
+	case QCAMERA_SM_EVT_SET_PARAMS:
+		{
+			bool needRestart = false;
+			rc = m_parent->updateParameters((char*)payload, needRestart);
+			if (rc == NO_ERROR){
+				if (needRestart){
+					// need restart preview for parameters to take effect
+					m_parent->unpreparePreview();
+					// commit parameter changes to server
+					m_parent->commitParameterChanges();
+					// prepare preview again
+					rc = m_parent->preparePreview();
+					if (rc != NO_ERROR) {
+						m_state = QCAMERA_SM_STATE_PREVIEW_STOPPED;
+					}
+				}else{
+					rc = m_parent->commitParameterChanges();
+				}
+			}
+			
+			result.status = rc;
+			result.request_api = evt;
+			result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
+			m_parent->signalAPIResult(&result);
+		}
+		break;
+	....
+}
+ 
+ 
+ 
+ 
