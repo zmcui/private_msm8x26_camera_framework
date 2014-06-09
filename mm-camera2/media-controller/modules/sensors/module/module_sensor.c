@@ -1,3 +1,74 @@
+/** module_sensor_hal_set_parm: process event for
+ *  sensor_module
+ * 
+ *  @module_sensor_parms: pointer to sensor module params
+ *  @event_control: pointer to control data that is sent with
+ * 					S_PARM
+ *  Return: TRUE / FALSE
+ *  This function handles events associated with S_PARM 
+ */
+static boolean module_sensor_hal_set_parm(
+	module_sensor_parms_t *module_sensor_params,
+	mct_event_control_parm_t *event_control)
+{
+	boolean ret = TRUE;
+	int32_t rc = SENSOR_SUCCESS;
+	
+	switch(event_control->type){
+		case CAM_INTF_PARM_SATURATION:
+		....
+		case CAM_INTF_PARM_SHARPNESS:{
+		  if(!event_control->parm_data){
+		  	SERR("failed parm_data NULL");
+		  	ret = FALSE;
+		  	break;
+		  }
+		  /*czm this will call sensor_process() in sensor.c*/
+		  rc = module_sensor_params->func_tbl.process(
+		  	module_sensor_params->sub_module_private,
+		  	SENSOR_SET_SHARPNESS, event_control->parm_data);
+		  if(rc < 0){
+		  	SERR("failed");
+		  	ret = FALSE;
+		  	break;
+		  }
+		}
+		  break;
+		....
+	}
+	....
+}
+
+
+/**  module_sensor_event_control_set_parm: process event for
+ * 	 sensor module
+ *
+ * 	 @s_bundle: pointer to sensor bundle
+ *   @control_data: pointer to control data that is sent with
+ * 					S_PARM
+ * 
+ *   Return: TRUE / FALSE
+ * 
+ *   This function handles all events associated with S_PARM
+ */
+static boolean module_sensor_event_control_set_parm(
+	mct_module_t *module, mct_event_t* event,
+	sensor_bundle_info_t *bundle)
+{
+	....
+	default:{
+		sensor_output_format_t output_format;
+		rc = module_sensor_params->func_tbl.process(
+			module_sensor_params->sub_module_private,
+			SENSOR_GET_SENSOR_FORMAT, &output_format);
+		if(output_format == SENSOR_YCBCR){
+			ret = module_sensor_hal_set_parm(module_sensor_params, event_control);
+		}
+	}
+	break;
+	....
+}
+
 /** module_sensor_process_event: process event for sensor
  *  module
  * 
@@ -77,6 +148,48 @@ mct_event_t *event)
 		  }
 		  break;
 		case ....
+		case MCT_EVENT_CONTROL_SET_PARM:{
+			ret = module_sensor_event_control_set_parm(
+				module, event, &bundle_info);
+			
+			if(ret == FALSE){
+				SERR("failed");
+			}
+			mct_event_control_parm_t *event_control = 
+			  (mct_event_control_parm_t *)(event->u.ctrl_event.control_event_data);
+			
+			module_sensor_parms_t *module_sensor_parms = 
+			  bundle_info.s_bundle->module_sensor_params[SUB_MODULE_SENSOR];
+			sensor_bracket_params_t *af_bracket_params = 
+			  &(bundle_info.s_bundle->af_bracket_params);
+			sensor_bracket_params_t *flash_bracket_params =
+			  &(bundle_info.s_bundle->flash_bracket_params);
+			  
+			sensor_output_format_t output_format;
+			rc = module_sensor_params->func_tbl.process(
+				module_sensor_params->sub_module_private,
+				SENSOR_GET_SENSOR_FORMAT, &output_format);
+			if(output_format == SENSOR_BAYER ||
+				(event_control->type == CAM_INTF_PARM_ZOOM) ||
+				(event_control->type == CAM_INTF_PARM_FD)){
+					
+				// Frame skip during bracketing must not be forwarded
+				if((CAM_INTF_PARM_FRAMESKIP != event_control->type) &&
+				   (!af_bracket_params->ctrl.enable)&&
+				   (!flash_bracket_params->ctrl.enable)){
+				   	
+				   	/* Call send_event to propogate event to next module*/
+				   	ret = sensor_util_post_event_in_src_port(module, event);
+				   	if(ret == FALSE){
+				   		SERR("failed");
+				   		return FALSE;
+				   	}
+				   }
+				}
+				break;
+			}
+			case ....
+			
 	}
 }
 

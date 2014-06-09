@@ -9,6 +9,44 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
+	unsigned int cmd, void *arg)
+{
+	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
+	void __user *argp = (void __user *)arg;
+	if(!s_ctrl){
+		pr_err("%s s_ctrl NULL\n", __func__);
+		return -EBADF;
+	}
+	switch(cmd){
+	case VIDIOC_MSM_SENSOR_CFG:
+		return s_ctrl->func_tbl->sensor_config(s_ctrl, argp);
+	case VIDIOC_MSM_SENSOR_GET_AF_STATUS:
+		return msm_sensor_get_af_status(s_ctrl, argp);
+	case VIDIOC_MSM_SERSOR_RELEASE:
+		return msm_sensor_stop_stream(s_ctrl);
+		return 0;
+	case MSM_SD_SHUTDONW:
+		return 0;
+	default:
+		return --ENOIOCTLCMD;
+	}
+}
+
+static struct v4l2_subdev_core_ops msm_sensor_subdev_core_ops = {
+	.ioctl = msm_sensor_subdev_ioctl,
+	.s_power = msm_sensor_power,
+}
+
+static struct v4l2_subdev_video_ops msm_sensor_subdev_video_ops = {
+	.enum_mbus_fmt = msm_sensor_v4l2_enum_fmt,
+}
+
+static struct v4l2_subdev_ops msm_sensor_subdev_ops = {
+	.core = &msm_sensor_subdev_core_ops,
+	.video = &msm_sensor_subdev_video_ops,
+}
+
 static struct msm_sensor_fn_t msm_sensor_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,

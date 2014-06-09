@@ -32,3 +32,39 @@
 
  	return ret;
  }
+
+
+/*=======================================================
+ * FUNCTION   : commitParameterChanges
+ *
+ * DESCRIPTION: commit parameter changes to the backend to take effect
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ * NOTE       : This function must be called after updateParameters.
+ *              Otherwise, no change will be passed to backend to take effect.
+ *=======================================================*/
+ int QCamera2HardwareInterface::commitParameterChanges()
+ {
+ 	int rc = NO_ERROR;
+ 	pthread_mutex_lock(&m_parm_lock);
+ 	rc = mParameters.commitParameters();
+ 	if(rc == NO_ERROR){
+ 		// update number of snapshot based on committed parameters setting
+ 		rc = mParameters.setNumofSnapshot();
+ 	}
+ 	pthread_mutex_unlock(&m_parm_lock);
+ 	return rc;
+ }
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 

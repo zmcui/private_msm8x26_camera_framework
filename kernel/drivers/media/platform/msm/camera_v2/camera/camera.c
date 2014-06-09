@@ -9,6 +9,40 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+static int camera_v4l2_s_ctrl(struct file *filep, void *fh,
+	struct v4l2_control *ctrl)
+{
+	int rc = 0;
+	struct v4l2_event event;
+	struct msm_v4l2_event_data *event_data;
+	if (ctrl->id >= V4L2_CID_PRIVATE_BASE) {
+		camera_pack_event(filep, MSM_CAMERA_SET_PARM, ctrl->id,
+		ctrl->value, &event);
+		
+		/*czm MSM_CAMERA_SET_PARM will be processed by mct_pipeline_process_serv_msg() in mct_pipeline of mm-camera2*/
+		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
+		if (rc < 0)
+			return rc;
+		event_data = (struct msm_v4l2_event_data *)event.u.data;
+		ctrl->value = event_data->ret_value;
+		rc = camera_check_event_status(&event);
+	}
+	
+	return rc;
+}
+
+
+
+static const struct v4l2_ioctl_ops camera_v4l2_ioctl_ops = {
+	.vidioc_querycap = camera_v4l2_querycap,
+	.vidioc_s_crop = camera_v4l2_s_crop,
+	.vidioc_g_crop = camera_v4l2_g_crop,
+	.vidioc_queryctrl = camera_v4l2_queryctrl,
+	.vidioc_g_ctrl = camera_v4l2_g_ctrl,
+	.vidioc_s_ctrl = camera_v4l2_s_ctrl,
+	....
+}
+
 int camera_init_v4l2(struct device *dev, unsigned int *session)
 {
 	struct msm_video_device *pvdev;

@@ -105,3 +105,44 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
 	return NO_ERROR;
  }
  
+/*===============================================
+ * FUNCTION   : commitParameters
+ *
+ * DESCRIPTION: commit parameter changes to backend
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *===============================================*/
+int32_t QCameraParameters::commitParameters()
+{
+	return commitSetBatch();
+}
+
+/*=======================================================
+ * FUNCTION   : commitSetBatch
+ *
+ * DESCRIPTION: commit all set parameters in the batch work to backend
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *======================================================*/
+int32_t QCameraParameters::commitSetBatch()
+{
+	int32_t rc = NO_ERROR;
+	if(m_pParamBuf->first_flagged_entry < CAM_INTF_PARM_MAX){
+		rc = m_pCamOpsTbl->ops->set_parms(m_pCamOpsTbl->camera_handle, m_pParamBuf);
+	}
+	if(rc == NO_ERROR){
+		// commit change from temp storage into param map
+		rc = commitParamChanges();
+	}
+	return rc;
+}
+
+

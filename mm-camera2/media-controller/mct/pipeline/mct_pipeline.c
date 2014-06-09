@@ -43,6 +43,48 @@ static boolean mct_pipeline_populate_query_cap_buffer(mct_pipeline_t *pipeline)
 	....
 }
 
+/** mct_pipeline_process_set:
+ * @
+ * @
+ * 
+ * */
+static boolean mct_pipeline_process_set(struct msm_v4l2_event_data *data,
+	mct_pipeline_t *pipeline)
+{
+	boolean ret = TRUE;
+	mct_stream_t *stream = NULL;
+	mct_pipeline_get_stream_info_t info;
+	
+	ALOGE("%s: command = %x", __func__, data->command);
+	
+	/* First find correct stream; for some commands find based on index,
+	 * for others (session based commands) find the appropriate stream
+	 * based on stream_type */
+	switch(data->command){
+	....	
+	
+	case CAM_PRIV_PRAM:{
+		/*start reading the parm buf from HAL*/
+		parm_buffer_new_t *p_table = (parm_buffer_new_t *)pipeline->config_parm;
+		
+		if(p_table && p_table->num_entry){
+			CDBG("%s: num params in set_parm: %d", __func__, p_table->num_entry);
+			copy_pending_parm(p_table, pipeline->pending_set_parm);
+			sem_post(&p_table->cam_sync_sem);
+		}
+		if(stream){
+			/*send event only if a stream exists*/
+			ret = mct_pipeline_send_ctrl_events(pipeline, stream->streamid,
+				MCT_EVENT_CONTROL_SET_PARM);
+		}else{
+			ret = TRUE;
+		}
+	}
+	break;
+	}
+	....
+}
+
 /** mct_pipeline_process_get:
  *	@
  *	@
