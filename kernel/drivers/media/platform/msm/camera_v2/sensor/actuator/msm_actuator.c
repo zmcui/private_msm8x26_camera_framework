@@ -9,6 +9,63 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
+	struct msm_actuator_set_info_t *set_info)
+{
+	int16_t code_per_step = 0;
+	int16_t cur_code = 0;
+	int16_t step_index = 0, region_index = 0;
+	uint16_t step_boundary = 0;
+	uint32_t max_code_size = 1;
+	uint16_t data_size = set_info->actuator_params.data_size;
+	CDBG("Enter\n");
+	
+	for(; data_size > 0; data_size--)
+		max_code_size *= 2;
+		
+	kfree(a_ctrl->step_position_table);
+	a_ctrl->step_position_table = NULL;
+	
+	if(set_info->af_tuning_params.total_steps
+		> MAX_ACTUATOR_AF_TOTAL_STEPS){
+		pr_err("Max actuator totalsteps exceeded = %d\n", 
+		set_info->af_tuning_params.total_steps);		
+		return -EFAULT;
+	}
+	/* Fill step position table */
+	a_ctrl->step_position_table = 
+		kmalloc(sizeof(uint16_t) *
+		(set_info->af_tuning_params.total_steps + 1), GFP_KERNEL);
+		
+	if(a_ctrl->step_position_table == NULL)
+		return -ENOMEM;
+		
+	cur_code = set_info->af_tuning_params.initial_code;
+	a_ctrl->step_position_table[step_index++] = cur_code;
+	for(region_index = 0;
+		region < a_ctrl->region_size;
+		region_index++){
+		code_per_step = 
+			a_ctrl->region_params[region_index].code_per_step;
+		step_boundary = 
+			a_ctrl->region_params[region_index].step_boundary[MOVE_NEAR];
+		for(; step_index <= step_boundary; step_index++){
+			cur_code += code_per_step;
+			if(cur_code < max_code_size)
+				a_ctrl->step_position_table[step_index] = cur_code;
+			else{
+				for(; step_index <
+					set_info->af_tuning_params.total_steps;
+					step_index++)
+					a_ctrl->step_position_table[step_index] = max_code_size;
+			}
+		}	
+	}
+	CDBG("Exit\n");
+	return 0;
+}
+
 static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_set_info_t *set_info)
 {
