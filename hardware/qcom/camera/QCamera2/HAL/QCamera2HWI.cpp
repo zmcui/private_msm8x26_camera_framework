@@ -224,11 +224,69 @@ void QCamera2HardwareInterface::set_CallBacks(struct camera_device *device,
  	return rc;
  }
  
+/*==========================================
+ * FUNCTION	: setCallBacks(class QCamera2HardwareInterface)
+ *
+ * DESCRIPTION: set callbacks impl
+ *
+ * PARAMETERS:
+ *	@notify_cb	: notify cb
+ *	@data_cb	: data cb
+ *	@data_cb_timestamp : data cb with time stamp
+ *	@get_memory	: request memory ops table
+ *	@user		: user data ptr
+ *
+ * RETURN		: int32_t type of status
+ *				  NO_ERROR -- success
+ *				  none-zero failure code
+ *=========================================*/
+int QCamera2HardwareInterface::setCallBacks(camera_notify_callback notify cb,
+											camera_data_callback data_cb,
+											camera_data_timestamp_callback data_cb_timestamp,
+											camera_request_memory get_memory,
+											void *user)
+{
+	mNotifyCb = notify_cb;
+	mDataCb	  = data_cb;
+	mDataCbTimestamp = data_cb_timestamp;
+	mGetmemory = get_memory;
+	mCallbackCookie = user;
+	m_cbNotifier.setCallbacks(notify_cb, data_cb, data_cb_timestamp, user);
+	return NO_ERROR;
+}
  
- 
- 
- 
- 
- 
- 
- 
+/*==========================================
+ * FUNCTION	: setCallBacks(class QCameraCbNotifier)
+ *
+ * DESCRIPTION: Initialinzes the callback functions, which would be used for
+ *				communication with the upper layers and lanches the callback
+ *				context in which the callbacks will occur.
+ *
+ * PARAMETERS:
+ *	@notifyCb	: notification callback
+ *	@dataCb		: data callback
+ *	@dataCbTimestamp : data with time stamp
+ *	@callbackCookie	 : callback context data
+ *
+ * RETURN		: none
+ *=========================================*/
+void QCameraCbNotifier::setCallbacks(camera_notify_callback notify notifyCb,
+									 camera_data_callback dataCb,
+									 camera_data_timestamp_callback dataCbTimestamp,
+									 void *callbackCookie)
+{
+	if((NULL == mNotifyCb)&&
+	   (NULL == mDataCb)&&
+	   (NULL == mDataCbTimestamp)&&
+	   (NULL == mCallbackCookie)){
+	 mNotifyCb = notifyCb;
+	 mDataCb = dataCb;
+	 mDataCbTimestamp = dataCbTimestamp;
+	 mCallbackCookie = callbackCookie;
+	 mActive = true;
+	 mProcTh.launch(cbNotifyRoutine, this);
+	}else{
+		ALOGE("%s : Camera callback notifier already initialized!",
+				__func__);
+	}
+}
