@@ -47,6 +47,29 @@ public:
 		return rc;
 	}
 	
+	/** Set the notification and data callbacks */
+	void setCallbacks(notify_callback notify_cb,
+					  data_callback data_cb,
+					  data_callback_timestamp data_cb_timestamp,
+					  void* user)
+	{
+		mNotifyCb = notify_cb;
+		mDataCb = data_cb;
+		mDataCbTimestamp = data_cb_timestamp;
+		mCbUser = user;
+		
+		ALOGV("%s(%s)", __FUNCTION__, mName.string());
+		
+		if(mDevice->ops->set_callbacks){
+			mDevice->ops->set_callbacks(mDevice,
+									__notify_cb,
+									__data_cb,
+									__data_cb_timestamp,
+									__get_memory,
+									this);
+		}
+	}
+	
 	/**
 	 * Set the camera parameters. This returns BAD_VALUE if any parameter is
 	 * invalid or not supported. */
@@ -59,4 +82,64 @@ public:
 												params.flatten().string());
 		return INVALID_OPERATION;
 	}
+}
+
+//This is a utility class that combines a MemoryHeapbase and a MemoryBase
+//in one. Since we tend to use them in a one-to-one relationship, this is
+//handy.
+class CameraHeapMemory : public RefBase {
+public:
+	CameraHeapMemory(int fd, size_t buf_size, uint_t num_buffers = 1) :
+					 mBufSize(buf_size),
+					 mNumBufs(num_buffers)
+	{
+		mHeap = new MemoryHeapBase(fd, buf_size * num_buffers);
+		commonInitialization();
+	}
+	
+	CameraHeapMemory(size_t buf_size, uint_t num_buffers = 1) :
+					 mBuffer(buf_size),
+					 mNumBufs(num_buffers)
+	{
+		mHeap = new MemoryHeapBase(buf_size * num_buffers);
+		commonInitialization();	
+	}
+	
+	void commonInitialization()
+	{
+		handle.data = mHeap->base();
+		handle.size = mBufSize * mNumBufs;
+		handle.handle = this;
+		
+		mBuffers = new sp<MemoryBase>[mNumBufs];
+		for(uint_t i = 0; i < mNumBufs; i++)
+			mBuffers[i] = new MemoryBase(mHeap,
+										 i * mBufSize,
+										 mBufSize);
+		handle.release = __put_memory;
+	}
+	
+	virtual ~CameraHeapMemory()
+	{
+		delete [] mBuffers;
+	}
+	
+	size_t mBufSize;
+	uint_t mNumBufs;
+	sp<MemoryHeapBase> mHeap;
+	sp<MemoryBase> *mBuffers;
+	
+	camera_memory_t handle;
+};
+
+static camera_memory_t* __get_memory(int fd, size_t buf_size, uint_t num_bufs,
+									void *user __attribute__((unused)))
+{
+	CameraHeapMemory *mem;
+	if(fd < 0)
+		mem = new CameraHeapMemory(buf_size, num_bufs);
+	else
+		mem = new CameraHeapMemory(fd, buf_size, num_bufs);
+	mem->incStrong(mem);	
+	return &mem->handle;
 }
