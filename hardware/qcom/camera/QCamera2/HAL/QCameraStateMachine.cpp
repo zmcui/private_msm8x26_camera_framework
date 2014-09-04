@@ -27,6 +27,41 @@
  */
  
 /*======================================
+ * FUNCTION	: procAPI
+ * DESCRIPTION : process incoming API request from framework layer.
+ *
+ * PARMETERS   :
+ *	@evt		: event to be processed
+ *	@api_payload: API payload. Can be NULL if not need.
+ *
+ * RETUTN	: int32_t type of status
+ *			  NO_ERROR -- success
+ *			  none-zero failure code
+ *====================================*/			  
+int32_t QCameraStateMachine::procAPI(qcamera_sm_evt_enum_t evt,
+									void *api_payload)
+{
+	qcamera_sm_cmd_t *node =
+		(qcamera_sm_cmd_t *)malloc(sizeof(qcamera_sm_cmd_t));
+	if(NULL == node){
+		ALOGE("%s: NO memory for qcamera_sm_cmd_t", __func__);
+		return NO_MEMORY;
+	}
+	
+	memset(nnode, 0, sizeof(qcamera_sm_cmd_t));
+	node->cmd = QCAMERA_SM_CMD_TYPE_API;
+	node->evt = evt;
+	node->evt_payload = api_payload;
+	if(api_queue.enqueue((void *)node)){
+		cam_sem_post(&cmd_sem);
+		return NO_ERROR;
+	}else{
+		free(node);
+		return UNKNOWN_ERROR;
+	}
+}
+
+/*======================================
  * FUNCTION	: procEvtPreviewStoppedState
  *
  * DESCRIPTION: finite state machine function to handle event in state of
@@ -42,6 +77,22 @@
 int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t evt,
 														void *payload)
 {
+	....
+	case QCAMERA_SM_EVT_SET_CALLBACKS:
+		{
+			qcamera_sm_evt_setcb_payload_t *setcbs =
+				(qcamera_sm_evt_setcb_payload *)payload;
+			rc = m_parent->setCallBacks(setcbs->notify_cb,
+										setcbs->data_cb,
+										setcbs->data_cb_timestamp,
+										setcbs->get_memory,
+										setcbs->user);
+			result.status = rc;
+			result.request_api = evt;
+			result.request_type = QCAMEA_API_RESULT_TYPE_DEF;
+			m_parent->signalAPIResult(&result);
+		}
+		break;
 	....
 	case QCAMERA_SM_EVT_SET_PARAMS:
 		{
