@@ -1,3 +1,55 @@
+camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
+	set_preview_window:		QCamera2HardwareInterface::set_preview_window,
+	set_callbacks:			QCamera2HarewareInterface::set_callbacks,
+....
+}
+
+/*============================================
+ * FUNCTION	: set_CallBacks
+ * 
+ * DESCRIPTION:	set callbacks for notify and data
+ *
+ * PARAMETERS:
+ *	@device		: ptr to camera struct
+ *	@notify_cb	: notify cb
+ *	@data_cb	: data cb
+ *	@data_cb_timestamp	: video data cb with timestamp
+ *	@get_memory	: ops table for request gralloc memory
+ *	@user		: user data ptr
+ *
+ *	RETURN	: none
+ *===========================================*/
+void QCamera2HardwareInterface::set_CallBacks(struct camera_device *device,
+	camera_notify_callback notify_cb,
+	camera_data_callback data_cb,
+	camera_data_timestamp_callback data_cb_timestamp,
+	camera_request_memory get_memory,
+	void *user)
+{
+	QCamera2HardwareInterface *hw =
+		reinterpret_cast<Qcamera2HardwareInterface *>(device->priv);
+	if(!hw){
+		ALOGE("NULL camera device");
+		return;
+	}
+	
+	qcamera_sm_evt_setcb_payload_t payload;
+	payload.notify_cb = notify_cb;
+	payload.data_cb = data_cb;
+	payload.data_cb_timestamp = data_cb_timestamp;
+	payload.get_memory = get_memory;
+	payload.user = user;
+	
+	hw->lockAPI();
+	qcamera_api_result_t apiResult;
+	int32_t rc = hw->precessAPI(QCAMERA_SM_EVT_SET_CALLBACKS, (void *)&payload);
+	if(rc == NO_ERROR){
+		hw->waitAPIResult(QCAMERA_SM_EVT_SET_CALLBACKS, &apiResult);
+	}
+	hw->unlockAPI();
+}
+
+
 /*============================================
  * FUNCTION : allocateStreamBuf
  *
