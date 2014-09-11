@@ -84,9 +84,35 @@ static boolean mct_stream_start_link(mct_stream_t *stream)
 			stream->streaminfo.identity);
 		imglib->set_mod(imglib, MCT_MODULE_FLAG_SINK,
 			stream->streaminfo.identity);
+		
+		ret = mct_stream_link_modules(stream, sensor, iface, isp, pproc, imglib, 
+			NULL);
+		if(ret == FALSE){
+			CDBG_ERROR("%s:%d] link failed", __func__, __LINE__);
+			return FALSE;
+		}
+		if(pipeline->query_data.sensor_cap.sensor_format != FORMAT_YCBCR){
+			ret = mct_stream_link_modules(stream, isp, stats, NULL);
+			if(ret = FALSE){
+			CDBG_ERROR("%s:%d] link failed", __func__, __LINE__);
+			return FALSE;
+			}
+		}
+		
+		if(ret == FALSE){
+			CDBG_ERROR("%s:%d] link failed", __func__, __LINE__);
+			return FALSE;
+		}
+		ret = mct_pipeline_send_ctrl_events(pipeline, stream->streamid,
+			MCT_EVENT_CONTROL_SET_PARM);
 	}
-	
-	
+		break;
+		
+	case CAM_STREAM_TYPE_SNAPSHOT: {
+		....
 	}
-
+	....
+	}/* switch (stream->streaminfo.stream_type)*/
+	
+	return TRUE;
 }
