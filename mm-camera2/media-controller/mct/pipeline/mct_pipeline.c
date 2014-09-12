@@ -20,6 +20,56 @@ static cam_dimention_t default_liveshot_sizes[] = {
 	{ 176, 144}    // QCIF
 };
 
+/** mct_pipeline_send_event
+ *	@pipeline
+ *	@stream_id
+ *  @event
+ * 
+ *	Return: TRUE on success, FALSE on failure
+ **/
+static boolean mct_pipeline_send_event(mct_pipeline_t *pipeline,
+	unsigned int stream_id, mct_event_t *event)
+{
+	boolean ret = TRUE;
+	mct_stream_t *stream = NULL;
+	mct_pipeline_get_stream_info_t info;
+	
+	if(!pipeline || !event)
+		return FALSE;
+		
+	info.check_type = CHECK_INDEX;
+	info.stream_index = stream_id;
+	
+	stream = mct_pipeline_get_stream(pipeline, &info);
+	if(!stream){
+		CDBG_ERROR("%s: Couldn't find stream\n", __func__);
+		return FALSE;
+	}
+	
+	ret = stream->send_event(stream, event);
+	return ret;
+}
+
+/**	mct_pipeline_send_ctrl_events:
+ *
+ *
+ *
+ **/
+boolean mct_pipeline_send_ctrl_events(mct_pipeline_t *pipeline,
+	unsigned int stream_id, mct_event_control_type_t event_type)
+{
+	....
+	if(pipeline->send_event){
+		ret = pipeline->send_event(pipeline, stream_id, &cmd_event);
+		if(ret == FALSE)
+			break;
+	}else{
+		break;
+	}
+	
+	....
+}
+
 /** populate_query_cap_buffer:
  *		@
  *		@
@@ -61,9 +111,34 @@ static boolean mct_pipeline_process_set(struct msm_v4l2_event_data *data,
 	 * for others (session based commands) find the appropriate stream
 	 * based on stream_type */
 	switch(data->command){
-	....	
+	....
 	
 	case CAM_PRIV_PRAM:{
+		/*This case could potentially hit even before a stream exists */
+		if(MCT_PIPELINE_NUM_CHILDREN(pipeline) > 0){
+			info.check_type		= CHECK_TYPE;
+			info.stream_type	= CAM_STREAM_TYPE_PREVIEW;
+			stream = mct_pipeline_get_stream(pipeline, &info);
+			if(!stream){
+				info.check_type = CHECK_TYPE;
+				info.stream_type = CAM_STREAM_TYPE_RAW; /*RDI streaming*/
+				stream = mct_pipeline_get_stream(pipeline, &info);
+				if(!stream){
+					CDBG_ERROR("%s: Couldn't find preview stream; Storing for later\n", __func__);
+				}
+			}
+		}
+	}
+	break;
+	
+	default:
+	break;
+	}
+	
+	/* Now process the set ctrl command on the appropriate stream */
+	switch(data->command){
+	....
+	case CAM_PRIV_PARM:{
 		/*start reading the parm buf from HAL*/
 		parm_buffer_new_t *p_table = (parm_buffer_new_t *)pipeline->config_parm;
 		
@@ -80,9 +155,9 @@ static boolean mct_pipeline_process_set(struct msm_v4l2_event_data *data,
 			ret = TRUE;
 		}
 	}
-	break;
-	}
 	....
+	}
+	
 }
 
 /** mct_pipeline_process_get:
@@ -167,9 +242,11 @@ mct_pipeline_t* mct_pipeline_new(void)
 	
 	/* For case SERV_MSG_SET,SERV_MSG_GET, SERV_MSG_STREAMON, SERV_MSG_STREAMOFF,
 	SERV_MSG_QUERY,SERV_MSG_CLOSE_SESSION */
-	pipeline->process_serv_msg= mct_pipeline_process_serv_msg;
+	pipeline->process_serv_msg = mct_pipeline_process_serv_msg;
 	pipeline->process_bus_msg = mct_pipeline_process_bus_msg;
 	....
 
+	pipeline->send_event = mct_pipeline_send_event;
+	....
 	return pipeline;
 }
