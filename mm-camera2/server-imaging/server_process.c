@@ -60,13 +60,59 @@ serv_proc_ret_t server_process_hal_event(struct v4l2_event *event)
 	struct msm_v4l2_event_data *ret_data =
 	(struct msm_v4l2_event_data *)(ret.ret_to_hal.ret_event.u.data);
 	
-	....
+	/* by default don't return command ACK to HAL,
+	 * return ACK only for two cases:
+	 * 1. new session
+	 * 2. Failure
+	 *
+	 * other command will return after they are processed
+	 * in MCT */
+	ret.ret_to_hal.ret			= FALSE;
+	ret.ret_to_hal.ret_type		= SERV_RET_TO_HAL_CMDACK;
+	ret.ret_to_hal.ret_event	= *event;
+	ret_data->v4l2_event_type	= event->type;
+	ret_data->v4l2_event_id		= event->id;
+	ret.result					= RESULT_SUCCESS;
+	
+	switch(event->id){
+		case MSM_CAMERA_NEW_SESSION:
+		....
+		case MSM_CAMERA_DEL_SESSION:
+		....
+		default:
+		serv_msg.msg_type	= SERV_MSG_HAL;
+		serv_msg.u.hal_msg	= *event;
+		break;
+	}/* switch (event->type) */
+	
 	// czm enter mct_controller.c(mm-camera2/media-controller/mct/controller/)
 	if (mct_controller_proc_serv_msg(&serv_msg) == FALSE) {
 		ret.result = RESULT_FAILURE;
 		goto error_return;
 	}
 	
+	....
+}
+
+/** server_process_hal_ds_packet:
+ *	@fd
+ *	@session
+ *
+ *	Return: serv_proc_ret_t
+ *			FAILURE - will return to HAL immediately
+ **/
+serv_proc_ret_t server_process_hal_ds_packet(const int fd,
+	const int session)
+{
+	....
+	serv_msg.msg_type	= SERV_MSG_DS;
+	serv_msg.u.hal_msg	= *event;
+	....
 	
-	
+	// czm enter mct_controller.c(mm-camera2/media-controller/mct/controller/)
+	if (mct_controller_proc_serv_msg(&serv_msg) == FALSE) {
+		ret.result = RESULT_FAILURE;
+		goto error_return;
+	}
+	....
 }
