@@ -116,3 +116,61 @@ static boolean mct_stream_start_link(mct_stream_t *stream)
 	
 	return TRUE;
 }
+
+/**
+ *
+ * Arguments/Fields:
+ * 	@
+ * 	@
+ * 
+ * 	Return
+ * 
+ * 	Description:
+ * 
+ */
+static boolean mct_stream_send_event(mct_stream_t *stream, mct_event_t *event)
+{
+	mct_module_t *src_module = NULL;
+	boolean ret = FALSE;
+	
+	if(stream->streaminfo.stream_type == CAM_STREAM_TYPE_METADATA){
+		ret = mct_stream_metadata_ctrl_event(stream, event);
+	}else{
+		if(MCT_STREAM_CHILDREN(stream)){
+			src_module = (mct_module_t *)(MCT_STREAM_CHILDREN(stream)->data);
+		}
+		if(src_module){
+			if((mct_module_find_type(src_module, event->identity)
+				== MCT_MODULE_FLAG_SOURCE) &&
+				src_module->process_event){
+			ret = src_module->process_event(src_module, event);
+			}
+		}
+	}
+	return ret;
+}
+
+/**
+ *
+ * Arguments/Fields:
+ * 	@
+ * 	@
+ * 
+ * 	Return
+ * 
+ * 	Description:
+ * 
+ */
+mct_stream_t* mct_stream_new(unsigned int stream_id)
+{
+	....
+	stream->add_module		= mct_stream_add_module;
+	stream->remove_module	= mct_stream_remove_module;
+	stream->sendevent		= mct_stream_send_event;
+	stream->map_buf			= mct_stream_map_buf;
+	stream->unmap_buf		= mct_stream_unmap_buf;
+	stream->link			= mct_stream_start_link;
+	stream->unlink			= mct_stream_start_unlink;
+	
+	return stream;
+}
