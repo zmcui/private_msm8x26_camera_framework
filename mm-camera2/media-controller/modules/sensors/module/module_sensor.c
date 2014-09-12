@@ -39,7 +39,6 @@ static boolean module_sensor_hal_set_parm(
 	....
 }
 
-
 /**  module_sensor_event_control_set_parm: process event for
  * 	 sensor module
  *
@@ -188,13 +187,33 @@ mct_event_t *event)
 				}
 				break;
 			}
-			case ....
-			
-	}
+			....
+			default:
+			/* Call send_event to propogate to next module */
+			ret = sensor_util_post_event_on_src_port(module, event);
+			if(ret == FALSE){
+				SERR("failed");
+				return FALSE;
+			}
+		break;	
+	}// switch end
+	return ret;
 }
 
-
-
+/** module_sensor_set_mod: set mod function for sensor module
+ *
+ *	This function handles set mod events sent by mct **/
+static void module_sensor_set_mod(mct_module_t *module,
+	unsigned int module_type, unsigned int identity)
+{
+	SLOW("Enter, module_type=%d", module_type);
+	mct_module_add_type(module, module_type, identity);
+	if(module_type == MCT_MODULE_FLAG_SOURCE){
+		mct_module_set_process_event_func(module,
+			module_sensor_module_process_event);
+	}
+	return;
+}
 
 
 /** module_sensor_find_sensor_subdev: find sensor subdevs
@@ -353,7 +372,25 @@ static void module_sensor_find_sensor_subdev(module_sensor_ctrl_t *module_ctrl)
  */
  mct_module_t *module_sensor_int(const char *name)
  {
- 	....
+ 	boolean					ret = TRUE;
+ 	mct_module_t			*s_module = NULL;
+ 	module_sensor_ctrl_t 	*module_ctrl = NULL;
+ 	
+ 	SHIGH("Enter");
+ 	
+ 	/* Create MCT module for sensor */
+ 	s_module = mct_module_create(name);
+ 	if(!s_module){
+ 		SERR("failed");	
+ 		return NULL;
+ 	}
+ 	
+ 	/* Fill function table in MCT module */
+ 	s_module->set_mod = module_sensor_set_mod;
+ 	s_module->query_mod = module_sensor_query_mod;
+ 	s_module->start_session = module_sensor_start_session;
+ 	s_module->stop_session = module_sensor_stop_session;
+ 	
  	/* Create sensor module control structure that consists of bundle
  	   information*/
  	module_ctrl = malloc(sizeof(module_sensor_ctrl_t));
