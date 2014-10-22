@@ -42,6 +42,40 @@ static int32_t mm_camera_intf_set_parms(uint32_t camera_handle,
 	return rc;
 }
 
+/*==========================================================
+ * FUNCTION   : mm_camera_intf_start_channel
+ *
+ * DESCRIPTION: start a channel, which will start all streams in the channel
+ *
+ * PARAMETERS :
+ *   @camera_handle: camera handle
+ *   @ch_id		   : channel handle
+ *
+ * RETURN     : int32_t type of status
+ *              0  -- success
+ *              -1 -- failure
+ *=========================================================*/
+static int32_t mm_camera_intf_start_channel(uint32_t camera_handle,
+											uint32_t ch_id)
+{
+	int32_t rc = -1;
+	mm_camera_obj_t * my_obj = NULL;
+	
+	pthread_mutex_lock(&g_intf_lock);
+	my_obj = mm_camera_util_get_camera_by_handler(camera_handle);
+	
+	if(my_obj){
+		pthread_mutex_lock(&my_obj->cam_lock);
+		pthread_mutex_unlock(&g_intf_lock);
+		rc = mm_camera_start_channel(my_obj, ch_id);
+	}else{
+		pthread_mutex_unlock(&g_intf_lock);
+	}
+	CDBG("%s :X rc = %d", __func__, rc);
+	return rc;
+}
+
+
 /* camera ops v-table */
 /* czm this variable will be assigned with "cam_obj->vtbl.ops = &mm_camera_ops;" in camera_open() */
 static mm_camera_ops_t mm_camera_ops = {
@@ -51,6 +85,8 @@ static mm_camera_ops_t mm_camera_ops = {
 	.set_parms = mm_camera_intf_set_parms,
 	.get_parms = mm_camera_intf_get_parms,
 	....
+	.start_channel = mm_camera_intf_start_channel, //start a channel
+	...
 }
 
 
