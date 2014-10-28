@@ -157,6 +157,87 @@ int32_t mm_channel_start(mm_channel_t *my_obj)
 		my_obj->bundle.is_active = TRUE;
 	}
 	
+	for(i = 0; i < num_streams_to_start; i++){
+		/* stream that are linked to this channel should not be started */
+		if(s_objs[i]->ch_obj != my_obj){
+			pthread_mutex_lock(&s_objs[i]->linked_stream->buf_lock);
+			s_objs[i]->linked_stream->linked_obj = my_obj;
+			s_objs[i]->linked_stream->is_linked = 1;
+			pthread_mutex_unlock(&s_objs[i]->linked_stream->buf_lock);
+			continue;
+		}
+		
+		/*all streams within a channel should be started at the same time */
+		if(s_objs[i]->state == MM_STREAM_STATE_ACTIVE){
+			CDBG_ERROR("%s: stream already started idx(%d)", __func__, i);
+			rc = -1;
+			break;
+		}
+		
+		/* allocate buf */
+		rc = mm_stream_fsm_fn(s_objs[i], MM_STREAM_EVT_GET_BUF, NULL, NULL);
+		if(0 != rc){
+			CDBG_ERROR("%s: get buf failed at idx(%d)", __func__, i);
+			break;
+		}
+		
+		/* register buffer*/
+		rc = mm_stream_fsm_fn(s_objs[i], MM_STREAM_EVT_REG_BUF, NULL, NULL);
+		if(0 != rc){
+			CDBG_ERROR("%s: reg buf failed at idx(%d)", __func__, i);
+			break;
+		}
+		
+		/* start stream */
+		rc = mm_stream_fsm_fn(s_objs[i], MM_STREAM_EVT_START, NULL, NULL);
+		if(0 != rc){
+			CDBG_ERROR("%s: start stream failed at idx(%d)", __func__, i);
+			break;
+		}
+	}
 	
+	/* error handling */
+	if(0 != rc){
+		for(j = 0; j <= i; j++){
+			if(s_obj[j]->ch_obj != my_obj){
+				/* Only unlink stream */
+				pthread_mutex_lock(&s_objs[i]->linked_stream->buf_lock);
+				s_objs[i]->linked_stream->is_linked = 0;
+				s_objs[i]->linked_stream->linked_obj = NULL;
+				pthread_mutex_unlock(&s_objs[i]->linked_stream->buf_lock);	
+				
+				if(TRUE == my_obj->bundle.is_active){
+					mm_channel_superbuf_flush(my_obj, &my_obj->bundle.superbuf_queue, s_objs[j]->stream_info->stream_type);
+				}
+				memset(s_objs[j], 0, sizeof(mm_stream_t));
+				
+				continue;
+			}
+			
+			/* stop streams */
+			mm_stream_fsm_fn(s_objs[j], MM_STREAM_EVT_STOP, NULL, NULL);
+			
+			/* unreg buf */
+			mm_stream_fsm_fn(s_objs[j], MM_STREAM_EVT_UNREG_BUF, NULL, NULL);
+			
+			/* put buf back */
+			mm_stream_fsm_fn(s_objs[j], MM_STREAM_EVT_PUT_BUF, NULL, NULL);
+		}
+		
+		/* destroy super buf cmd thread */
+		if(TRUE == my_obj->bundle.is_active){
+			/* first stop bundle thread */
+			mm_camera_cmd_thread_release(&my_obj->cmd_thread);
+			mm_camera_cmd_thread_release(&my_obj->cb_thread);
+			
+			/* deinit superbuf queue */
+			mm_channel_superbuf_queue_deinit(&my_obj->bundle.superbuf_queue);
+			
+			/* memset bundle info */
+			memset(&my_obj->bundle, 0, sizeof(mm_channel_bundle_t));
+		}
+	}
+	
+	return rc;
 }
 
