@@ -1,3 +1,39 @@
+// QCamera2Memory base class
+
+/*==========================================
+ * FUNCTION		: QCameraMemory
+ *
+ * DESCRIPTION	: default constructor of QCameraMemory
+ *
+ * PARAMETERS	:
+ *  @cached		: flag indicates if using cached memory
+ *
+ * RETURN		: none
+ *=========================================*/
+ QCameraMemory::QCameraMemory(bool cached,
+          QCameraMemoryPool *pool,
+          cam_stream_type_t streamType)
+      :m_bCached(cached),
+       mMemoryPool(pool),
+       mStreamType(streamType)
+{
+  mBufferCount = 0;
+  memset(mMemInfo, 0, sizeof(mMemInfo));
+}
+
+/*==========================================
+ * FUNCTION		: ~QCameraMemory
+ *
+ * DESCRIPTION	: deconstructor of QCameraMemory
+ *
+ * PARAMETERS	: none
+ *
+ * RETURN		: none
+ *=========================================*/
+QCameraMemory::~QCameraMemory()
+{
+}
+
 /*==========================================
  * FUNCTION		: alloc
  *
