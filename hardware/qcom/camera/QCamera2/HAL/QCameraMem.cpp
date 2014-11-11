@@ -35,6 +35,46 @@ QCameraMemory::~QCameraMemory()
 }
 
 /*==========================================
+ * FUNCTION		: getBufDef
+ *
+ * DESCRIPTION	: query detailed buffer information
+ *
+ * PARAMETERS	:
+ *	@offset   : [input] frame buffer offset
+ *	@bufDef   : [output] reference to struct to store buffer definition
+ *  @index    : [input] index of the buffer
+ *
+ * RETURN		: none
+ *=========================================*/
+void QCameraMemory::getBufDef(const cam_frame_len_offset_t &offset,
+    mm_camera_buf_def_t &bufDef, int index) const
+{
+  if(!mBufferCount){
+    ALOGE("Memory not allocated");
+    return;
+  }
+  
+  bufDef.fd = mMemInfo[index].fd;
+  bufDef.frame_len = mMemInfo[index].size;
+  bufDef.mem_info = (void *)this;
+  bufDef.num_planes = offset.num_planes;
+  bufDef.buffer = getPtr(index);
+  bufDef.buf_idx = index;
+  
+  /* Plane 0 needs to be set separately. Set other planes in a loop */
+  bufDef.planes[0].length = offset.mp[0].len;
+  bufDef.planes[0].m.userptr = mMemInfo[index].fd;
+  bufDef.planes[0].data_offset = offset.mp[0].offset;
+  bufDef.planes[0].seserved[0] = 0;
+  for(int i = 1; i < bufDef.num_planes; i++){
+    bufDef.planes[i].length = offset.mp[i].len;
+    bufDef.planes[i].m.userptr = mMemInfo[i].fd;
+    bufDef.planes[i].data_offset = offset.mp[i].offset;
+    bufDef.planes[i].reserved[0] = bufDef.planes[i-1].reserved[0] + bufDef.planes[i-1].length;
+  }
+}
+
+/*==========================================
  * FUNCTION		: alloc
  *
  * DESCRIPTION	: allocate requested number of buffers of certain size
