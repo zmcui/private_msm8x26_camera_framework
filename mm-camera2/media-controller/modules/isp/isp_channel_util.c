@@ -129,3 +129,73 @@ static void isp_ch_util_dump_frame(int ion_fd, mct_stream_info_t *stream_info,
 end:
   return;
 }
+
+/*=============================================================
+ * Function   : isp_ch_util_buf_divert_notify
+ *
+ * Description: 
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : 
+ *============================================================*/
+int isp_ch_util_buf_divert_notify(
+  isp_t *isp, isp_frame_divert_notify_t *divert_event)
+{
+  int idx, rc = 0;
+  struct msm_isp_event_data *buf_divert = divert_event->isp_event_data;
+  isp_buf_divert_t pp_divert;
+  mct_event_t mct_event;
+  isp_port_t *isp_port;
+  isp_channel_t *channel;
+  isp_frame_buffer_t *image_buf;
+  uint8_t src_port_idx = ISP_SRC_PROT_DATA;
+  
+  isp_session_t *session = 
+    isp_util_find_session(isp, buf_divert->u.buf_done.session_id);
+    
+  if(!session){
+    CDBG_ERROR("%s: cannot find session (%d)\n",
+      __func__, buf_divert->u.buf_done.session_id);
+    goto error;
+  }
+  
+  ISP_DBG(ISP_MOD_COM, "%s: session_id = %d, channel_id = %d \n", __func__,
+    buf_divert->u.buf_done.session_id, buf_divert->u.buf_done.stream_id);
+    
+  channel = isp_ch_util_find_channel_in_session(session,
+    buf_divert->u.buf_done.stream_id);
+  if(!channel){
+    ....
+  }
+  
+  if(channel->divert_to_3a){
+    src_port_idx = ISP_SRC_PORT_3A;
+  }
+  
+  memset(&mct_event, 0, sizeof(mct_event));
+  mct_event.u.module_event.type = MCT_EVENT_MODULE_BUF_DIVERT;
+  mct_event.u.module_event.module_event_data = (void *)&pp_divert;
+  mct_event.type = MCT_EVENT_MODULE_EVENT;
+  mct_event.identity = pack_identity(buf_divert->u.buf_done.session_id,
+  buf_divert->u.buf_done.stream_id);
+  mct_event.direction = MCT_EVENT_DOWNSTREAM;
+  
+  memset(&pp_divert, 0, sizeof(pp_divert));
+  pp_divert.identity = mct_event.identity;
+  pp_divert.native_buf = channel->use_native_buf;
+  idx = buf_divert->u.buf_done.buf_idx;
+  
+  image_buf = isp_get_buf_by_idx(&isp->data.buf_mgr,
+    channel->bufq_handle, idx);
+  if(!image_buf){
+    ....
+  }
+  
+  #ifdef ISP_IMG_DUMP_ENABLE
+    isp_ch_util_dump_frame(isp->data.buf_mgr.ion_fd, &channel->stream_info,
+      image_buf, buf_divert->frame_id, channel->meta_info.dump_to_fs);
+  #endif
+  
+  ....
+}
