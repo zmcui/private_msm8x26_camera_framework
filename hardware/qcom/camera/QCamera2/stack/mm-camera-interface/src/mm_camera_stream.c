@@ -35,6 +35,8 @@ int32_t mm_stream_fsm_fn(mm_stream_t *my_obj,
 	....
 	case MM_STREAM_STATE_CFG:
 		rc = mm_stream_fsm_cfg(my_obj, evt, in_val, out_val);
+	case MM_STREAM_STATE_BUFFED:
+		rc = mm_stream_fsm_buffed(my_obj, evt, in_val, out_val);
 	....
 	}
 	CDBG("%s : X rc =%d",__func__,rc);
@@ -62,7 +64,7 @@ int32_t mm_stream_fsm_cfg(mm_stream_t *my_obj,
 						void * in_val,
 						void * out_val)
 {
-	int32_t re = 0;
+	int32_t rc = 0;
 	CDBG("%s: E, my_handle = 0x%x, fd = %d, state = %d",
 		__func__, my_obj->my_hdl, my_obj->fd, my_obj->state);
 	switch(evt){
@@ -75,6 +77,44 @@ int32_t mm_stream_fsm_cfg(mm_stream_t *my_obj,
 		}
 		break;
 		....
+	}
+	CDBG("%s :X rc = %d", __func__, rc);
+	return rc;
+}
+
+/*======================================================
+ * FUNCTION   : mm_stream_fsm_buffed
+ *
+ * DESCRIPTION: stream finite state machine function to handle event in BUFFED
+ *				state
+ *
+ * PARAMETERS :
+ *  @my_obj     :ptr to a stream object
+ *	@evt		:stream event to be precessed
+ *	@in_val		:input event payload. Can be NULL if not needed.
+ *	@out_val	:output payload, Can be NULL if not needed
+ *
+ * RETURN     : int32_t type of status
+ *              0  -- success
+ *              -1 -- failure
+ *=========================================================*/
+int32_t mm_stream_fsm_buffed(mm_stream_t *my_obj,
+						mm_stream_evt_type_t evt,
+						void * in_val,
+						void * out_val)
+{
+	int32_t rc = 0;
+	CDBG("%s: E, my_handle = 0x%x, fd = %d, state = %d",
+		__func__, my_obj->my_hdl, my_obj->fd, my_obj->state);
+	switch(evt){
+	....
+	case MM_STREAM_EVT_REG_BUF:
+	  rc = mm_stream_reg_buf(my_obj);
+	  /* change state to regged */
+    if(rc = 0)
+      my_obj->state = MM_STREAM_STATE_REG;
+    break;
+  ....
 	}
 	CDBG("%s :X rc = %d", __func__, rc);
 	return rc;
