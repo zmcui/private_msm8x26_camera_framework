@@ -75,6 +75,44 @@ static int32_t mm_camera_intf_start_channel(uint32_t camera_handle,
 	return rc;
 }
 
+/*==========================================================
+ * FUNCTION   : get_sensor_info
+ *
+ * DESCRIPTION: get sensor info like facing(back/front) and mount angle
+ *
+ * PARAMETERS :
+ *
+ * RETURN     :
+ *=========================================================*/
+void get_sensor_info()
+{
+    int rc = 0;
+    int dev_fd = 0;
+    struct media_device_info mdev_info;
+    int num_media_devices = 0;
+    uint8_t num_cameras = 0;
+    
+    CDBG("%s : E", __func__);
+    /*lock the mutex*/
+    while(1){
+        char dev_name[32];
+        int num_entities;
+        snprintf(dev_name, sizeof(dev_name), "/dev/media%d", num_media_devices);
+        dev_fd = open(dev_name, O_RDWR | O_NONBLOCK);
+        if(dev_id <= 0) {
+            CDBG("Done discovering media devices");
+            break;
+        }
+        num_media_devices++;
+        memset(&mdev_info, 0, sizeof(mdev_info));
+        rc = ioctl(dev_fd, MEDIA_IOC_DEVICE_INFO, &mdev_info);
+        if(rc < 0){
+            CDBG_ERROR("");
+            
+        }
+        
+    }
+}
 
 /* camera ops v-table */
 /* czm this variable will be assigned with "cam_obj->vtbl.ops = &mm_camera_ops;" in camera_open() */
