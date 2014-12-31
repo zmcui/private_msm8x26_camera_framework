@@ -107,11 +107,59 @@ void get_sensor_info()
         memset(&mdev_info, 0, sizeof(mdev_info));
         rc = ioctl(dev_fd, MEDIA_IOC_DEVICE_INFO, &mdev_info);
         if(rc < 0){
-            CDBG_ERROR("");
-            
+            CDBG_ERROR("Error: ioctl media_dev failed: %s \n", strerror(errno));
+            close(dev_fd);
+            dev_fd = 0;
+            num_cameras = 0;
+            break;
         }
         
+        /*MSM_CONFIGURATION_NAME defined in kernel/include/media/msmb_camera.h */
+        if(strncmp(mdev_info.model, MSM_CONFIGURATION_NAME, sizeof(mdev_info.model)) != 0){
+            close(dev_fd);
+            dev_fd = 0;
+            continue;
+        }
+        
+        num_entities = 1;
+        while(1){
+            struct media_entity_desc entity;
+            unsigned long temp;
+            unsigned int mount_angle;
+            unsigned int facing;
+            
+            memset(&entity, 0, sizeof(entity));
+            entity.id = num_entities++;
+            rc = ioctl(dev_fd, MEDIA_IOC_ENUM_ENTITIES, &entity);
+            if(rc < 0){
+                CDBG("Done enumerating media entities\n");
+                rc = 0;
+                break;
+            }
+            if(entity.type == MEDIA_ENT_T_V4L2_SUBDEV &&
+                entity.group_id == MSM_CAMERA_SUBDEV_SENSOR){
+                temp = entity.flags >> 8;                 /*got from kernel entity*/
+                mount_angle = (temp & 0xFF) * 90;
+                facing = (temp >> 8);
+                ALOGD("index = %d flag = %x mount_angle = %d facing = %d\n"
+                    , num_cameras, (unsigned int)temp, (unsigned int)mount_angle, (unsigned int)facing);
+                g_cam_ctrl.info[num_cameras].facing = facing;
+                g_cam_ctrl.info[num_cameras].orientation = mount_angle;
+                num_cameras++;
+                continue;
+            }
+        }
+        
+        CDBG("%s: dev_info[id=%d, name='%s']\n",
+            __func__, num_cameras, g_cam_ctrl.video_dev_name[num_cameras]);
+            
+        close(dev_fd);
+        dev_fd = 0;
     }
+    
+    /*unlock the mutex*/
+    CDBG("%s: num_cameras = %d\n", __func__, g_cam_ctrl.num_cam);
+    return;
 }
 
 /* camera ops v-table */
