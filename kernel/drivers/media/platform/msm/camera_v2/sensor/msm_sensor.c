@@ -65,6 +65,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_write_conf_tbl = msm_camera_cci_i2c_write_conf_tbl,
 }
  
+ /*used by YUV sensor*/
 int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 {
 	int32_t rc = 0;
@@ -127,6 +128,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	s_ctrl->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
 	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
 	s_ctrl->msm_sd.sd.entity.name = s_ctrl->msm_sd.sd.name;
+	/*same as msm_sensor_driver_probe() update sensor mount angle and position in media entity flag */
 	mount_pos = s_ctrl->sensordata->sensor_init_params->position;
 	mount_pos = mount_ops << 8;
 	mount_pos = mount_ops | 
