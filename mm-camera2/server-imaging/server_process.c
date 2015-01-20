@@ -1,8 +1,11 @@
 static mct_module_init_name_t modules_list[] = {
+  // goto modules/sensors/module/module_sensor.c
 	{"sensor", module_sensor_init, module_sensor_deinit},
 	{"iface", module_iface_init, module_iface_deinit},
+  // goto modules/isp/module_isp.c
 	{"isp", module_isp_init, module_isp_deinit},
 	{"stats", stats_module_init, stats_module_deinit},
+  // goto modules/pproc-new/pproc_module.c
 	{"pproc", pproc_module_init, pproc_module_deinit},
 	{"imglib", module_imglib_init, module_imglib_deinit},
 };

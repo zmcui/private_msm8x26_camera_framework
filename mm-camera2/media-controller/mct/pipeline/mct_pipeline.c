@@ -20,6 +20,12 @@ static cam_dimention_t default_liveshot_sizes[] = {
 	{ 176, 144}    // QCIF
 };
 
+static cam_fps_range_t default_fps_ranges[] = {
+  { 15.0, 15.0, 15.0, 15.0},
+  { 24.0, 24.0, 24.0, 24.0},
+  { 30.0, 30.0, 30.0, 30.0},
+}
+
 /** mct_pipeline_send_event
  *	@pipeline
  *	@stream_id
@@ -77,6 +83,9 @@ boolean mct_pipeline_send_ctrl_events(mct_pipeline_t *pipeline,
  **/
 static boolean mct_pipeline_populate_query_cap_buffer(mct_pipeline_t *pipeline)
 {
+
+  cam_fps_range_t fps = {10.0, 30.0, 10.0, 30.0};
+
 	....
 	hal_data->livesnapshot_sizes_tbl_cnt = 0;
 	for(i = 0;
@@ -91,6 +100,79 @@ static boolean mct_pipeline_populate_query_cap_buffer(mct_pipeline_t *pipeline)
 		   }
 		}
 	....
+  //fps range
+  hal_data->fps_ranges_tbl_cnt = 0;
+  for(i = 0; 
+     (i < (sizeof(default_fps_ranges) / sizeof(cam_fps_range_t))
+       && i < MAX_SIZES_CNT);
+     i++){
+    if (default_fps_ranges[i].min_fps >= fps.min_fps &&
+        default_fps_ranges[i].max_fps <= fps.max_fps) {
+      hal_data->fps_ranges_tbl[hal_data->fps_rangs_tbl_cnt] =
+       default_fps_ranges[i];
+      hal_data->fps_ranges_tbl_cnt++;
+    }
+  }
+  if (hal_data->fps_ranges_tbl_cnt == 0) {
+    hal_data->fps_ranges_tbl[hal_data->fps_ranges_tbl_cnt] = fps;
+    hal_data->fps_ranges_tbl_cnt++;
+  }else{
+    //fps range of sensor will replace the first entry that meets this condition
+    for (i = 0; i < hal_data->fps_ranges_tbl_cnt && i < MAX_SIZES_CNT; i++){
+      if ((hal_data->fps_ranges_tbl[i].max_fps > fps.max_fps) ||
+        (F_EQAL(hal_data->fps_ranges_tbl[i].max_fps, fps.max_fps)) &&
+        (hal_data->fps_ranges_tbl[i].min_fps > fps.min_fps)){
+        break;
+      }
+    }
+    if (MAX_SIZES_CNT > i) {
+      for (j = hal_data->fps_ranges_tbl_cnt; j > i; j--) {
+        hal_data->fps_ranges_tbl[j] = hal_data->fps_ranges_tbl[j-1];
+      }
+      hal_data->fps_ranges_tbl[i] = fps;
+      hal_data->fps_ranges_tbl_cnt++;
+    }
+  }
+  ....
+  //effects
+  hal_data->supported_effects_cnt = 0;
+  if(local_data->sensor_cap.sensor_format == FORMAT_BAYER) {
+    //depend on ISP cap
+    for (i = 0; i < local_data->isp_cap.supported_effects_cnt; i++) {
+      hal_data->supported_effects[hal_data->supported_effects_cnt] =
+        local_data->isp_cap.supported_effects[i];
+      hal_data->supported_effects_cnt++;
+    }
+  } else {
+    for (i = 0; i < CAM_EFFECT_MODE_MAX; i++) {
+    //depend on Sensor cap
+      if (local_data->sensor_cap.sensor_supported_effect_modes & (1 << i)) {
+        hal_data->supported_effects[hal_data->supported_effects_cnt] = i;
+        hal_data->supported_effects_cnt++;
+      }
+    }
+  }
+
+  uint8_t supported_effects_cnt = hal_data->supported_effects_cnt;
+    //depend on PP cap
+  for (j = 0; j < local_data->pp_cap.supported_effects_cnt; j++){
+    common = FALSE;
+    //if sensor_cap and pp cap_overlap
+    for (i = 0; i < supported_effects_cnt i++) {
+      if (hal_data->supported_effects[i] ==
+        local_data->pp_cap.supported_effects[j]) {
+        common = TRUE;
+        break;
+      }
+    }
+    if (common == TRUE)
+      continue;
+    hal_data->supported_effects[hal_data->supported_effects_cnt] =
+      local_data->pp_cap.supported_effects[j];
+    hal_data->supported_effects_cnt++;
+  }
+
+  
 }
 
 /** mct_pipeline_process_set:
