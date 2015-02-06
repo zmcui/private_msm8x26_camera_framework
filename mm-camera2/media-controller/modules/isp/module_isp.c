@@ -1,4 +1,32 @@
 /*
+ * module_isp_start_session
+ *  @module: mct module instance
+ *  @sessionid: session id to be started
+ *
+ * starts specified session
+ *
+ * this function executes in Imaging Server context
+ *
+ * Returns TRUE in case of success
+ * */
+static boolean module_isp_start_session(mct_module_t *module,
+    unsigned int sessionid)
+{
+  boolean rc = FALSE;
+  int ret = 0;;
+  isp_t *isp = module->module_private;
+
+  ISP_DBG(ISP_MOD_COM, "%s: E, module->module_private = %p, sessionid %d \n", __func__,
+      module->module_private, sessionid);
+  pthread_mutex_lock(&isp_mutex);
+  ret = isp_start_session(isp, sessionid);
+  pthread_mutex_unlock(&isp_mutex);
+  rc = (ret == 0)? TRUE : FALSE;
+  ISP_DBG(ISP_MOD_COM, "%s: X, rc = %d \n", __func__, rc);
+  return rc;
+}
+
+/*
  * module_isp_query_mod_func
  *  @module: mct module instance
  *  @query_buf: query capabilities data

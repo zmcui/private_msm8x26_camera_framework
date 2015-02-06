@@ -1,3 +1,75 @@
+/** module_sensor_start_session:
+ * 
+ *  @module: sensor module
+ *  @session_id: session id
+ *
+ *  Return: TRUE / FALSE
+ */
+static boolean module_sensor_start_session(
+    mct_module_t *module, unsigned int sessionid)
+{
+  module_sensor_ctrl_t          *module_ctrl = NULL;
+  mct_list_t                    *s_list = NULL;
+  module_sensor_bundle_info_t   *s_bundle = NULL;
+  boolean                       ret = TRUE;
+
+  SHIGH("session %d", sessionid);
+  if(!module) {
+    SERR("failed");
+    return FALSE;
+  }
+
+  module_ctrl = (module_sensor_ctrl_t *)module->module->private;
+  if(!module_ctrl) {
+    SERR("failed");
+    return FALSE;
+  }
+
+  /* get the s_bundle from session id */
+  s_list = mct_list_find_custom(module_ctrl->sensor_bundle, &sessionid,
+      sensor_util_find_bundle);
+  if(!s_list) {
+    SERR("failed");
+    return FALSE;
+  }
+  s_bundle = (module_sensor_bundle_info_t *)s_list->data;
+  if(!s_bundle) {
+    SERR("failed");
+    return FALSE;
+  }
+
+
+  /* initialize the "torch on" flag to 0 */
+  s_bundle->torch_on = 0;
+  s_bundle->longshot = 0;
+
+  /*
+   * this init session includes
+   * power up sensor, config init setting
+   * */
+  ret = module_sensor_init_session(s_bundle);
+  if(ret == FALSE) {
+    SERR("failed");
+    return ERROR;
+  }
+
+  /*
+   * create a sensor thread
+   * */
+  ret = sensor_thread_create(module);
+
+  if(ret == FALSE) {
+    SERR("failed");
+    return ERROR;
+  }
+
+  return TRUE;
+
+ERROR:
+  SERR("failed");
+  return FALSE;
+}
+
 /** module_sensor_hal_set_parm: process event for
  *  sensor_module
  * 

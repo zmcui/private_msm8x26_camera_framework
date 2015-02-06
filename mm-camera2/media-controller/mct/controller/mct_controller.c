@@ -1,3 +1,37 @@
+/** mct_controller_new:
+ *  @mods: modules list
+ *  @session_idx: session index
+ *  @serv_fd: file descriptor for MCT to communicate
+ *          back to imaging server
+ *
+ *  create a new Media Controller object. This is a
+ *  new session pipeline
+ *
+ *  This function executes in Server context
+ **/
+boolean mct_controller_new(mct_list_t *mods,
+    unsigned int session_idx, int serv_fd)
+{
+  mct_controller_t *mct = NULL;
+  int              ds_fd;
+  pthread_t        tid;
+
+  mct = (mct_controller_t *)malloc(sizeof(mct_controller_t));
+  if (!mct)
+    goto mct_error;
+
+  mct->pipeline = mct_pipeline_new();
+  if(!mct->pipeline)
+    goto pipeline_error;
+
+  mct->pipeline->modules = mods;
+  mct->pipeline->session = session_idx;
+
+  mct_pipeline_start_session(mct->pipeline);
+
+  ....
+}
+
 /** mct_controller_proc_servmsg:
  *  @servMsg: the message to be posted
  *

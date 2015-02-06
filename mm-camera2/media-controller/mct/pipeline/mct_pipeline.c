@@ -308,6 +308,101 @@ static boolean mct_pipeline_process_serv_msg(void *message,
 	return ret;
 }
 
+/** mct_pipeline_start_session_thread:
+ *    @data: void* pointer to the mct_pipeline_thread_data
+ *
+ *  Thread implementation to start camera module.
+ *
+ *  Return: NULL
+ **/
+static void* mct_pipeline_start_session_thread(void *data)
+{
+  mct_pipeline_thread_data_t *thread_data = (mct_pipeline_thread_data_t *)data;
+  mct_module_t *module = thread_data->module;
+  unsigned int session_id = thread_data->session_id;
+  CDBG_ERROR("%s thread_id is %d\n", __func__, syscall(SYS_gettid));
+  pthread_mutex_lock(&thread_data->mutex);
+  pthread_cond_signal(&thread_data->cond_v);
+  pthread_mutex_unlock(&thread_data->mutex);
+
+  if (module->start_session){
+    module->start_session(module, session_id);
+  }
+
+  pthread_mutex_lock(&thread_data->mutex);
+  thread_data->started_num++;
+  if(thread_data->started_num == thread_data->modules_num)
+    pthread_cond_signal(&thread_data->cond_v);
+  pthread_mutex_unlock(&thread_data->mutex);
+
+  return NULL;
+}
+
+/** mct_pipeline_modules_start:
+ *    @data1: void* pointer to the module being processed
+ *    @data2: void* pointer to the pipeline object
+ *
+ *  Create thread for each module for start session.
+ *
+ *  Return: TRUE on success
+ **/
+static boolean mct_pipeline_modules_start(void *data1, void *data2)
+{
+  int rc = 0;
+  pthread_attr_t attr;
+  mct_pipeline_t *pipeline = (mct_pipeline_t *)data2;
+  mct_pipeline_thread_data_t *thread_data = &(pipeline->thread_data);
+  thread_data->module = (mct_module_t *)data1;
+  thread_data->session_id = pipeline->session;
+
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  pthread_mutex_lock(&thread_data->mutex);
+  rc = pthread_create(&pipeline->thread_data.pid, &attr,
+      &mct_pipeline_start_session_thread, (void *)thread_data);
+  if(!rc){
+    pthread_cond_wait(&thread_data->cond_v, &thread_data->mutex);
+  }
+  pthread_mutex_unlock(&thread_data->mutex);
+
+  return TRUE;
+}
+
+/** mct_pipeline_start_session:
+ *    @pipeline: mct_pipeline_t object
+ *
+ *  Pipeline start session, start each camera module and query the
+ *  module capacity
+ *
+ *  Return: no return value
+ **/
+void mct_pipeline_start_session(mct_pipeline_t *pipeline)
+{
+  //czm mutex and condition usage
+  pthread_mutex_init(&pipeline->thread_data.mutex, NULL);
+  pthread_cond_init(&pipeline->thread_data.cond_v, NULL);
+  pipeline->thread_data.started_num = 0;
+  pipeline->thread_data.modules_num = 0;
+  mct_list_traverse(pipeline->modules, mct_pipeline_get_module_num,
+      pipeline);
+  //czm start each module
+  mct_list_traverse(pipeline->modules, mct_pipeline_modules_start,
+      pipeline);
+  pthread_mutex_lock(&pipeline->thread_data.mutex);
+  pthread_cond_wait(&pipeline->thread_data.cond_v, &pipeline->thread_data.mutex);
+  pthread_mutex_unlock(&pipeline->thread_data.mutex);
+  mct_list_traverse(pipeline->modules, mct_pipeline_query_modules,
+      pipeline);
+
+  pipeline->max_pipeline_frame_delay = 2;
+
+  //start tuning server
+  mct_start_tuning_server(pipeline);
+
+  return;
+}
+
+
 /** mct_pipeline_new
  *
  **/

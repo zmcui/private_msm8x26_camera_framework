@@ -78,8 +78,48 @@ serv_proc_ret_t server_process_hal_event(struct v4l2_event *event)
 	ret.result					= RESULT_SUCCESS;
 	
 	switch(event->id){
-		case MSM_CAMERA_NEW_SESSION:
-		....
+    //czm camera_pack_event(filep, MSM_CAMERA_NEW_SESSION, 0, -1, &event); from kernel
+		case MSM_CAMERA_NEW_SESSION:{
+      ret.ret_to_hal.ret = TRUE;
+      ret.result = RESULT_NEW_SESSION;
+
+      /*
+       * new session starts, need to create a MCT:
+       * open a pipe first.
+       *
+       * Note the 3 file descriptors:
+       * one domain socket fd and two pipe fds are closed
+       * at server side once session close information
+       * is receivied by server.
+       * */
+      int pipe_fd[2];
+
+      if (!pipe(pipe_fd)) {
+        ret.new_session_info.mct_msg_rd_fd = pipe_fd[0];
+        ret.new_session_info.mct_msg_wt_fd = pipe_fd[1];
+      }else{
+        goto error_return;
+      }
+
+      if(server_process_bind_hal_ds(data->session_id,
+            &(ret.new_session_info.hal_ds_fd)) == FALSE){
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        goto error_return;
+      }
+
+      if (mct_controller_new(modules, data->session_id, pipe_fd[1]) == TRUE){
+        ret.new_session = TRUE;
+        ret.new_session_info.session_idx = data->session_id;
+        goto process_done;
+      }else{
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        goto error_return;
+      }
+    }/* case MSM_CAMERA_NEW_SESSION */
+        break;
+
 		case MSM_CAMERA_DEL_SESSION:
 		....
 		default:
