@@ -98,6 +98,59 @@ int msm_sd_register(struct msm_sd_subdev *msm_subdev)
   return __msm_sd_register_subdev(&msm_subdev->sd);
 }
 
+static int __msm_close_destroy_session_notify_apps(void *d1, void *d2)
+{
+  struct v4l2_event event;
+  struct msm_v4l2_event_data *event_data =
+    (struct msm_v4l2_event_data *)&event.u.data[0];
+  struct msm_session *session = d1;
+
+  event.type = MSM_CAMERA_V4L2_EVENT_TYPE;
+  event.id   = MSM_CAMERA_MSM_NOTYFY;
+  event_data->command = MSM_CAMERA_PRIV_SHUTDOWN;
+
+  v4l2_event_queue(session->event_q.vdev, &event);
+
+  return 0;
+}
+
+static long msm_private_ioctl(struct file *file, void *fh,
+    bool valid_prio, unsigned int cmd, void *arg)
+{
+  int rc = 0;
+  struct msm_v4l2_event_data *event_data = arg;
+  struct v4l2_event event;
+  struct msm_session *session;
+  unsigned int session_id;
+  unsigned int stream_id;
+  unsigned long spin_flags = 0;
+
+  ...
+
+  switch(cmd) {
+  ...
+
+  case MSM_CAM_V4L2_IOCTL_NOTIFY_ERROR:
+    /* sensor v4l2_event to HAL next */
+    msm_queue_traverse_action(msm_session_q,
+        struct msm_session, list,
+        __msm_close_destroy_session_notify_apps, NULL);
+    break;
+
+  default:
+    rc = -ENOTTY;
+    break;
+  }
+
+  return rc;
+}
+
+static const struct v4l2_ioctl_ops g_msm_ioctl_ops = {
+  .vidioc_subscribe_event = msm_subscribe_event,
+  .vidioc_unsubscribe_event = msm_unsubscribe_event,
+  .vidioc_default = msm_private_ioctl,
+}
+
 static int __devinit msm_probe(struct platform_device *pdev)
 {
   struct msm_video_device *pdev;
