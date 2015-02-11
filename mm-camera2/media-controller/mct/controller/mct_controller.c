@@ -30,6 +30,17 @@ boolean mct_controller_new(mct_list_t *mods,
   mct_pipeline_start_session(mct->pipeline);
 
   ....
+  pthread_mutex_lock(&mct->mctl_thread_started_mutex);
+
+  if(pthread_create(&tid, NULL, mct_controller_thread_run, mct)){
+    pthread_mutex_unlock(&mct->mctl_thread_started_mutex);
+    goto thread_error;
+  }
+
+  pthread_cond_wait(&mct->mctl_thread_started_cond,
+      &mct->mctl_thread_started_mutex);
+  pthread_mutex_unlock(&mct->mctl_thread_started_mutex);
+  ...
 }
 
 /** mct_controller_proc_servmsg:
@@ -131,6 +142,44 @@ mct_controller_t *mct, mct_serv_msg_t *msg)
 	return ret;
 }
 
+/** mct_controller_proc_bus_msg_internal:
+ *	Media Controller process Bus message
+ *
+ *	@mct: Media Controller Object
+ *	@msg: message object from bus
+ *	
+ *	Return: mct_process_ret_t
+ *
+ *	This function executes in Media Controller's thread context
+ **/
+static mct_process_ret_t mct_controller_proc_bus_msg_internal(
+    mct_controller_t *mct, mct_bus_msg_t *bus_msg)
+{
+  mct_process_ret_t ret;
+  mct_pipeline_t *pipeline;
+
+  ret.u.bus_msg_ret.error = TRUE;
+  ret.type = MCT_PROCESS_RET_BUS_MSG;
+
+  if(!mct || !bus_msg || !mct->pipeline){
+    return ret;
+  }
+
+  if(!mct_controller_check_pipeline(mct->pipeline)) {
+    return ret;
+  }
+
+  ret.u.bus_msg_ret.error = FALSE;
+  ret.u.bus_msg_ret.msg_type = bus_msg->type;
+  ret.u.bus_msg_ret.session = bus_msg->sessionid;
+
+  if (bus_msg->type == MCT_BUS_MSG_SEND_HW_ERROR){
+    ret.type = MCT_PROCESS_RET_ERROR_MSG;
+    return ret;
+  }
+  ...
+}
+
 /** mct_controller_thread_run:
  *	@data: structure of mct_controller_t
  *
@@ -174,9 +223,42 @@ static void* mct_controller_thread_run(void *data)
 			
 			// Try to pop anther message from the queue
 			continue;
-		}
-		
-		....
+
+      pthread_mutex_lock(&mct_this->mctl_mutex);
+
+      tmp_bus_q_cmd = mct_this->pipeline->bus->bus_cmd_q_flag;
+      mct_this->pipeline->bus->bus_cmd_q_flag = FALSE;
+      if(!tmp_bus_q_cmd && !mct_this->serv_cmd_q_counter) {
+        pthread_cond_wait(&mct_this->mctl_cond, &mct_this->mctl_mutex);
+      }
+
+      pthread_mutex_unlock(&mct_this->mctl_mutex);
+
+      /* Received Signal from Pipeline Bus */
+      while(tmp_bus_q_cmd) {
+        pthread_mutex_lock(&mct_this->pipeline->bus->bus_msg_q_lock);
+        bus_msg = (mct_bus_msg_t *)mct_queue_pop_head(mct_this->pipeline->bus->bus_queue);
+        pthread_mutex_unlock(&mct_this->pipeline->bus->bus_msg_q_lock);
+
+        if(!bus_msg) {
+          break;
+        }
+        proc_ret = mct_controller_proc_bus_msg_internal(mct_this, bus_msg);
+        
+        if(bus_msg->msg)
+          free(bus_msg->msg);
+
+        if(bus_msg)
+          free(bus_msg);
+
+        if(proc_ret.type == MCT_PROCESS_RET_ERROR_MSG ||
+            (proc_ret.type = MCT_PROCESS_RET_BUS_MSG &&
+             proc_ret.u.bus_msg_ret.msg_type == MCT_BUS_MSG_REPROCESS_STAGE_DONE) ||
+            (proc_ret.type == MCT_PROCESS_RET_BUS_MSG &&
+             proc_ret.u.bus_msg_ret.msg_type == MCT_BUS_MSG_SEND_EZTUNE_EVT)){
+          write(mct_this->serv_fd, &proc_ret, sizeof(mct_process_ret_t));
+        }
+    }
 	}while(1);
 close_mct:
 	return NULL;

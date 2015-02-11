@@ -159,3 +159,47 @@ serv_proc_ret_t server_process_hal_ds_packet(const int fd,
 	}
 	....
 }
+
+/*
+ * server_process_mct_msg:
+ *  @fd: pipe fd media controller uses to send message to HAL
+ *  @session: session index
+ *
+ * Return: serv_proc_index
+ *         FAILURE - will return to HAL immediately
+ *
+ * */
+serv_proc_ret_t server_process_mct_msg(const int fd, const unsigned int session)
+{
+  int read_len;
+  mct_process_ret_t mct_ret;
+  serv_proc_ret_t ret;
+  struct msm_v4l2_event_data *ret_data = (struct msm_v4l2_event_data *)
+    ret.ret_to_hal.ret_event.u.data;
+
+  read_len = read(fd, &mct_ret, sizeof(mct_process_ret_t));
+  if(read_len <= 0) {
+    ALOGE("%s: ERROR - read len is less than expected: %d", __func__, read_len);
+    goto error;
+  }
+
+  ret.result = RESULT_SUCCESS;
+  ret.ret_to_hal.ret = TRUE;
+
+  switch(mct_ret.type) {
+  ...
+  case MCT_PROCESS_RET_ERROR_MSG: {
+    ret.ret_to_hal.ret_type = SERV_RET_TO_HAL_NOTIFY_ERROR;
+    ret_data->session_id    = mct_ret.u.bus_msg_ret.session;
+  }
+    break;
+  default:
+    break;
+  }
+  return ret;
+
+error:
+  ret.result = RESULT_FAILURE;
+  ret.ret_to_hal.ret = FALSE;
+  return ret;
+}

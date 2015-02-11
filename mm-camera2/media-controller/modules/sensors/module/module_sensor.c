@@ -70,6 +70,72 @@ ERROR:
   return FALSE;
 }
 
+/** module_sensor_stream_on: sensor stream on
+ * 
+ *  @module: mct module handle
+ *  @event: event associated wiht stream on
+ *  @s_bundle: sensor bundle handle
+ *
+ *  Return: 0 for success and negative error on failure
+ *
+ *  This function executes stream on sequence based on the
+ *  order provided in sensor library. The possible sequences
+ *  are listed in sensor_res_cfg_type_t enum
+ */
+static boolean module_sensor_stream_on(mct_module_t *module,
+    mct_event_t *event, module_sensor_bundle_info_t *s_bundle)
+{
+  ...
+  rc = module_sensor_parms->func_tbl.process(
+      module_sensor_parms->sub_module_private,
+      SENSOR_GET_RES_CFG_TABLE, &res_cfg_table);
+  if (rc < 0) {
+    SERR("failed");
+    return FALSE;
+  }
+  for (i = 0; i < res_cfg_table->size; i++) {
+    SLOW("cfg type %d",
+        res_cfg_table->res_cfg_type[i]);
+    switch (res_cfg_table->res_cfg_type[i]) {
+    ...
+    case SENSOR_SET_START_STREAM: {
+      mct_event_t new_event;
+      float digital_gain=0.0;
+      sensor_output_format_t output_format;
+      sensor_chromatix_params_t chromatix_params;
+
+      rc = module_sensor_params->func_tbl.process(
+          module_sensor_params->sub_module_private,
+          SENSOR_GET_SENSOR_FORMAT, &output_format);
+      if(rc < 0){
+        SERR("failed");
+      } else if (output_format == SENSOR_BAYER){
+        ...
+      } /* if bayer */
+
+      if(stream_on_flag == TRUE){
+        SHIGH("ide %x SENSOR_START_STREAM", event->identity);
+        rc = module_sensor_params->func_tbl.process(
+            module_sensor_params->sub_module_private, SENSOR_START_STREAM, NULL);
+        if (rc < 0){
+          SERR("failed");
+          return FALSE;
+        }
+        mct_bus_msg_t bus_msg;
+        bus_msg.sessionid = s_bundle->sensor_info->session_id;
+        bus_msg.type = MCT_BUS_MSG_SENSOR_STARTING;
+        bus_msg.msg = NULL;
+        ALOGE("%s: Sending start bus message\n", __func__);
+        if(mct_module_post_bus_msg(module, &bus_msg) == FALSE)
+          SERR("failed");
+      }
+      break;
+    }
+    ...
+    }//switch
+  }//for
+}
+
 /** module_sensor_hal_set_parm: process event for
  *  sensor_module
  * 
@@ -195,7 +261,7 @@ mct_event_t *event)
 		module_sensor_params = bundle_info.s_bundle->module_sensor_params[SUB_MODULE_SENSOR];
 		rc = module_sensor_params->func_tbl.process(
 			module_sensor_params->sub_module_private,
-			SENSOR_GET_SENSOR_FROMAT, &output_format);
+			SENSOR_GET_SENSOR_FORMAT, &output_format);
 		SLOW("in Prepare snapshot, sensor type is %d \n", output_format);
 		if(output_format == SENSOR_YCBCR){
 			bus_msg.sessionid = bundle_info.s_bundle->sensor_info->session_id;
